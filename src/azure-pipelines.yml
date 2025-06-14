@@ -1,0 +1,55 @@
+trigger:
+- main
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+- script: dotnet --list-sdks
+  displayName: 'Versoes do .NET instaladas no ambiente'
+- script: |
+    docker pull mcr.microsoft.com/dotnet/sdk:10.0.100-preview.5
+  displayName: 'Baixar imagem do .NET 10 Preview 5'
+- script: |
+    docker images
+  displayName: 'Exibir imagens no ambiente'
+- script: |
+    mkdir src
+    cd src
+    cat <<EOF > docker.cs
+      using System.Runtime.InteropServices; 
+
+      Console.WriteLine("");
+      Console.WriteLine("***** Testes com scripts CSharp via Docker *****");
+      Console.WriteLine("");
+
+      // Id do Container
+      var containerId = Environment.MachineName;
+      
+      // Versao do .NET
+      var dotnetVersion = RuntimeInformation.FrameworkDescription;
+
+      Console.WriteLine("Id do Container: " + containerId);
+      Console.WriteLine("Versao do .NET: " + dotnetVersion);
+    EOF
+  displayName: 'Gerando arquivo docker.cs'
+- script: |
+    cd ./src
+    pwd
+    echo
+    ls -l
+  displayName: 'Verificar se o arquivo docker.cs foi criado'
+- script: |
+    cat ./src/docker.cs
+  displayName: 'Exibir conteudo do arquivo docker.cs'
+- task: PublishPipelineArtifact@1
+  inputs:
+    targetPath: './src/docker.cs'
+    artifact: 'script-csharp'
+    publishLocation: 'pipeline'
+  displayName: 'Publicar arquivo docker.cs como Artifact'
+- script: |
+    docker run -v ./src/docker.cs:/app/docker.cs -w /app mcr.microsoft.com/dotnet/sdk:10.0.100-preview.5 dotnet run docker.cs
+  displayName: 'Executar o arquivo docker.cs via container Docker'
+- script: docker ps -a
+  displayName: 'Exibir containers do ambiente'
